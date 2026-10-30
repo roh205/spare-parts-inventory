@@ -6,13 +6,13 @@ An executive-grade decision support platform for optimizing spare parts inventor
 
 ## 📌 Executive Summary
 
-Industrial spare parts management faces severe cost asymmetries: holding an extra component in inventory costs **$120/month**, whereas a component stockout induces emergency procurement (**$4,200**) plus production line downtime (**$6,000**), amounting to **$10,200 per stockout incident**.
+Industrial spare parts management faces severe cost asymmetries: holding an extra component in inventory costs **₹120/month**, whereas a component stockout induces emergency procurement (**₹4,200**) plus production line downtime (**₹6,000**), amounting to **₹10,200 per stockout incident**.
 
-A naive **deterministic policy** ordering the rounded expected demand ($S_{\text{det}} = 2$ units) results in a **36.5% stockout probability** and monthly costs of **$9,368**. In contrast, the **stochastic optimal policy** ($S^* = 4$ units):
-- Reduces expected total monthly costs to **$7,104**
-- Yields a **Value of Stochastic Solution (VSS)** of **$2,264 / month** (**24.2% direct cost reduction**)
+A naive **deterministic policy** ordering the rounded expected demand ($S_{\text{det}} = 2$ units) results in a **36.5% stockout probability** and monthly costs of **₹9,368**. In contrast, the **stochastic optimal policy** ($S^* = 4$ units):
+- Reduces expected total monthly costs to **₹7,104**
+- Yields a **Value of Stochastic Solution (VSS)** of **₹2,264 / month** (**24.2% direct cost reduction**)
 - Boosts **Cycle Service Level (CSL)** from **63.5%** to **93.8%**
-- Slashes catastrophic 95% CVaR tail risk from **$37,420** to **$20,020**
+- Slashes catastrophic 95% CVaR tail risk from **₹37,420** to **₹20,020**
 
 ---
 
@@ -66,11 +66,11 @@ $$f(t; k, \lambda) = \frac{k}{\lambda} \left(\frac{t}{\lambda}\right)^{k-1} e^{-
 For a monthly planning horizon $H = 600$ hours and base-stock order quantity $S$:
 $$\text{Cost}(S, D) = C_p \cdot S + C_h \cdot \max(0, S - D) + (C_e + C_d) \cdot \max(0, D - S)$$
 Where:
-- $C_p = \$1,500$ (Regular procurement)
-- $C_h = \$120$ (Holding cost per unit/month)
-- $C_e = \$4,200$ (Emergency rush order)
-- $C_d = \$6,000$ (Line stoppage & downtime)
-- $C_s = C_e + C_d = \$10,200$ (Stockout penalty)
+- $C_p =$ ₹1,500 (Regular procurement)
+- $C_h =$ ₹120 (Holding cost per unit/month)
+- $C_e =$ ₹4,200 (Emergency rush order)
+- $C_d =$ ₹6,000 (Line stoppage & downtime)
+- $C_s = C_e + C_d =$ ₹10,200 (Stockout penalty)
 
 ### 3. Key Decision Metrics
 - **Value of Stochastic Solution (VSS)**:
@@ -87,12 +87,12 @@ Where:
 | Metric | Deterministic Policy ($S_{\text{det}} = 2$) | Stochastic Policy ($S^* = 4$) | Impact / Benefit |
 | :--- | :---: | :---: | :---: |
 | **Base Stock Level ($S$)** | 2 units | 4 units | +2 units Safety Buffer |
-| **Expected Total Cost** | $9,368.79 | **$7,104.10** | **-$2,264.69 (24.2% savings)** |
-| **Stockout Penalty Cost** | $6,312.78 | **$872.10** | **-86.2% risk exposure** |
+| **Expected Total Cost** | ₹9,368.79 | **₹7,104.10** | **-₹2,264.69 (24.2% savings)** |
+| **Stockout Penalty Cost** | ₹6,312.78 | **₹872.10** | **-86.2% risk exposure** |
 | **Cycle Service Level (CSL)** | 63.5% | **93.8%** | **+30.3% reliability** |
 | **Order Fill Rate** | 71.2% | **96.0%** | **+24.8% parts fulfillment** |
 | **Stockout Incident Rate** | 36.5% | **6.2%** | Slashed to rare events |
-| **95% CVaR Financial Risk** | $37,420.90 | **$20,020.90** | **-$17,400 downside cap** |
+| **95% CVaR Financial Risk** | ₹37,420.90 | **₹20,020.90** | **-₹17,400 downside cap** |
 
 ---
 

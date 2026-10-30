@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stochastic Inventory Decision Support System | Spare Parts Optimization</title>
+  <!-- Tailwind CSS CDN with dark mode support -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js for high-fidelity interactive visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0fdf4',
+              100: '#dcfce7',
+              500: '#22c55e',
+              600: '#16a34a',
+              700: '#15803d',
+              900: '#14532d',
+            },
+            navy: {
+              800: '#1e293b',
+              850: '#172033',
+              900: '#0f172a',
+              950: '#090d16',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .glass-card {
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.4);
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.4);
+      border-radius: 9999px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.6);
+    }
+
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+
+      body {
+        background: white !important;
+        color: black !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-100 min-h-screen transition-colors duration-200">
+
+  <!-- Header / Navigation Bar -->
+  <header class="border-b border-slate-800 bg-slate-900/80 sticky top-0 z-40 glass-card">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div
+          class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+          <i data-lucide="cog" class="w-6 h-6 text-white animate-spin-slow"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+            SpareOpt <span
+              class="text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">PRO
+              v2.0</span>
+          </h1>
+          <p class="text-xs text-slate-400">Stochastic Spare Parts Inventory & Reliability Decision Suite</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <!-- Live status indicator -->
+        <div
+          class="hidden sm:flex items-center space-x-2 text-xs bg-slate-800/80 px-3 py-1.5 rounded-lg border border-slate-700/60">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-slate-300 font-medium" id="engineStatus">Monte Carlo Engine Ready</span>
+        </div>
+
+        <!-- Export CSV button -->
+        <button id="btnExportCSV"
+          class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Export CSV</span>
+        </button>
+
+        <!-- Print Report -->
+        <button onclick="window.print()"
+          class="inline-flex items-center space-x-1.5 px-3 py-1.5 text-xs font-medium rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 transition">
+          <i data-lucide="printer" class="w-3.5 h-3.5"></i>
+          <span>Report</span>
+        </button>
+
+        <!-- Recalculate Button -->
+        <button id="btnRunSimulation"
+          class="inline-flex items-center space-x-2 px-4 py-1.5 text-xs font-semibold rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-md shadow-emerald-700/30 transition transform active:scale-95">
+          <i data-lucide="play" class="w-3.5 h-3.5"></i>
+          <span>Run Simulation</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+
+    <!-- Top Executive Banner: Summary of Problem & VSS Value -->
+    <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <!-- KPI 1: Recommended Stochastic Policy -->
+      <div
+        class="bg-gradient-to-br from-emerald-950/40 via-slate-900 to-slate-900 p-5 rounded-2xl border border-emerald-500/30 shadow-xl relative overflow-hidden group">
+        <div
+          class="absolute -right-6 -bottom-6 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition">
+        </div>
+        <div class="flex items-center justify-between text-slate-400 text-xs font-medium mb-1">
+          <span>RECOMMENDED STOCK (S*)</span>
+          <span class="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400"><i data-lucide="shield-check"
+              class="w-4 h-4"></i></span>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span class="text-3xl font-extrabold text-emerald-400 mono" id="kpiSStoch">4</span>
+          <span class="text-xs text-slate-400">units</span>
+        </div>
+        <div class="mt-2 text-xs flex items-center gap-1.5 text-slate-300">
+          <span class="text-emerald-400 font-semibold" id="kpiSafetyStock">+2 units</span> safety buffer over mean
+        </div>
+      </div>
+
+      <!-- KPI 2: Naive Deterministic Policy -->
+      <div class="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 shadow-xl relative overflow-hidden group">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-medium mb-1">
+          <span>DETERMINISTIC POLICY (S_det)</span>
+          <span class="p-1.5 rounded-lg bg-amber-500/10 text-amber-400"><i data-lucide="alert-triangle"
+              class="w-4 h-4"></i></span>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span class="text-3xl font-extrabold text-amber-300 mono" id="kpiSDet">2</span>
+          <span class="text-xs text-slate-400">units (E[D] rounded)</span>
+        </div>
+        <div class="mt-2 text-xs text-amber-400/90 flex items-center gap-1 font-medium">
+          <i data-lucide="trending-down" class="w-3.5 h-3.5"></i>
+          <span id="kpiDetRisk">37.6% stockout probability</span>
+        </div>
+      </div>
+
+      <!-- KPI 3: Value of Stochastic Solution (VSS) -->
+      <div
+        class="bg-gradient-to-br from-indigo-950/40 via-slate-900 to-slate-900 p-5 rounded-2xl border border-indigo-500/30 shadow-xl relative overflow-hidden group">
+        <div
+          class="absolute -right-6 -bottom-6 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition">
+        </div>
+        <div class="flex items-center justify-between text-slate-400 text-xs font-medium mb-1">
+          <span>VALUE OF STOCHASTIC SOLUTION (VSS)</span>
+          <span class="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400"><i data-lucide="indian-rupee"
+              class="w-4 h-4"></i></span>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span class="text-3xl font-extrabold text-indigo-300 mono" id="kpiVSS">₹2,228</span>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300"
+            id="kpiVSSPct">23.9%</span>
+        </div>
+        <div class="mt-2 text-xs text-slate-300">
+          Monthly cost savings vs naive policy
+        </div>
+      </div>
+
+      <!-- KPI 4: Service Level & Fill Rate -->
+      <div class="bg-slate-900/90 p-5 rounded-2xl border border-slate-800 shadow-xl relative overflow-hidden group">
+        <div class="flex items-center justify-between text-slate-400 text-xs font-medium mb-1">
+          <span>SERVICE LEVEL & FILL RATE</span>
+          <span class="p-1.5 rounded-lg bg-blue-500/10 text-blue-400"><i data-lucide="check-circle-2"
+              class="w-4 h-4"></i></span>
+        </div>
+        <div class="flex items-baseline space-x-2">
+          <span class="text-3xl font-extrabold text-blue-400 mono" id="kpiFillRate">96.8%</span>
+          <span class="text-xs text-slate-400">fill rate</span>
+        </div>
+        <div class="mt-2 text-xs text-slate-300 flex items-center justify-between">
+          <span>Cycle Service Level: <strong class="text-white" id="kpiCSL">93.1%</strong></span>
+          <span class="text-emerald-400 text-[11px] font-semibold">High Reliability</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Main Layout: Sidebar Controls & Primary Analytics -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+      <!-- LEFT SIDEBAR: Parameter Controls (4 Cols) -->
+      <aside class="lg:col-span-4 space-y-5 no-print">
+
+        <!-- Fleet Reliability Parameters Card -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i>
+              Equipment & Reliability
+            </h2>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono" id="txtMTBF">MTBF: 1,594
+              hrs</span>
+          </div>
+
+          <!-- Number of Machines -->
+          <div>
+            <div class="flex justify-between text-xs font-medium mb-1.5">
+              <label for="inputMachines" class="text-slate-300">Active Machine Fleet (N)</label>
+              <span class="text-emerald-400 mono font-semibold" id="valMachines">25</span>
+            </div>
+            <input type="range" id="inputMachines" min="5" max="100" step="1" value="25"
+              class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+            <p class="text-[11px] text-slate-500 mt-1">Number of identical operational units in facility</p>
+          </div>
+
+          <!-- Monthly Operating Hours -->
+          <div>
+            <div class="flex justify-between text-xs font-medium mb-1.5">
+              <label for="inputHours" class="text-slate-300">Monthly Operating Hours (H)</label>
+              <span class="text-emerald-400 mono font-semibold" id="valHours">600 hrs</span>
+            </div>
+            <input type="range" id="inputHours" min="100" max="744" step="20" value="600"
+              class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+            <p class="text-[11px] text-slate-500 mt-1">Single-month planning window (720 hrs = 24/7)</p>
+          </div>
+
+          <!-- Weibull Shape (k) -->
+          <div>
+            <div class="flex justify-between text-xs font-medium mb-1.5">
+              <label for="inputK" class="text-slate-300">Weibull Shape Parameter (k)</label>
+              <span class="text-emerald-400 mono font-semibold" id="valK">2.20</span>
+            </div>
+            <input type="range" id="inputK" min="0.8" max="4.0" step="0.1" value="2.2"
+              class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+            <div class="flex items-center justify-between text-[11px] mt-1">
+              <span class="text-slate-500">Failure Stage:</span>
+              <span
+                class="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                id="badgeWeibullStage">Wear-out (k > 1)</span>
+            </div>
+          </div>
+
+          <!-- Weibull Scale (lambda) -->
+          <div>
+            <div class="flex justify-between text-xs font-medium mb-1.5">
+              <label for="inputLambda" class="text-slate-300">Weibull Scale Parameter (&lambda;)</label>
+              <span class="text-emerald-400 mono font-semibold" id="valLambda">1800 hrs</span>
+            </div>
+            <input type="range" id="inputLambda" min="500" max="5000" step="100" value="1800"
+              class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+            <p class="text-[11px] text-slate-500 mt-1">Characteristic life parameter (63.2% failure mark)</p>
+          </div>
+        </div>
+
+        <!-- Financial & Cost Structure Card -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="coins" class="w-4 h-4 text-amber-400"></i>
+              Cost & Penalty Economics
+            </h2>
+            <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-amber-400 font-mono"
+              id="txtStockoutPenalty">Penalty: ₹10,200</span>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <!-- Procurement Cost -->
+            <div>
+              <label class="text-[11px] text-slate-400 font-medium">Regular Proc. (Cp)</label>
+              <div class="relative mt-1">
+                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs text-slate-500">₹</span>
+                <input type="number" id="inputCp" value="1500" step="50" min="100"
+                  class="w-full pl-6 pr-2 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-mono focus:border-emerald-500 focus:outline-none">
+              </div>
+            </div>
+
+            <!-- Holding Cost -->
+            <div>
+              <label class="text-[11px] text-slate-400 font-medium">Monthly Holding (Ch)</label>
+              <div class="relative mt-1">
+                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs text-slate-500">₹</span>
+                <input type="number" id="inputCh" value="120" step="10" min="5"
+                  class="w-full pl-6 pr-2 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-mono focus:border-emerald-500 focus:outline-none">
+              </div>
+            </div>
+
+            <!-- Emergency Cost -->
+            <div>
+              <label class="text-[11px] text-slate-400 font-medium">Emergency Proc. (Ce)</label>
+              <div class="relative mt-1">
+                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs text-slate-500">₹</span>
+                <input type="number" id="inputCe" value="4200" step="100" min="500"
+                  class="w-full pl-6 pr-2 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-mono focus:border-emerald-500 focus:outline-none">
+              </div>
+            </div>
+
+            <!-- Downtime Cost -->
+            <div>
+              <label class="text-[11px] text-slate-400 font-medium">Equip. Downtime (Cd)</label>
+              <div class="relative mt-1">
+                <span class="absolute inset-y-0 left-0 pl-2.5 flex items-center text-xs text-slate-500">₹</span>
+                <input type="number" id="inputCd" value="6000" step="200" min="500"
+                  class="w-full pl-6 pr-2 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-mono focus:border-emerald-500 focus:outline-none">
+              </div>
+            </div>
+          </div>
+
+          <!-- Newsvendor Critical Ratio indicator -->
+          <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs">
+            <span class="text-slate-400">Critical Fractile (Cu / (Cu+Co)):</span>
+            <span class="text-emerald-400 font-mono font-bold" id="valCriticalRatio">0.986</span>
+          </div>
+        </div>
+
+        <!-- Simulation Settings Card -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <h2 class="text-sm font-bold text-white flex items-center gap-2">
+              <i data-lucide="sliders" class="w-4 h-4 text-blue-400"></i>
+              Simulation Constraints
+            </h2>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-[11px] text-slate-400 font-medium">Max Storage (B)</label>
+              <input type="number" id="inputMaxStorage" value="25" min="10" max="60"
+                class="mt-1 w-full px-3 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-mono focus:border-emerald-500 focus:outline-none">
+            </div>
+
+            <div>
+              <label class="text-[11px] text-slate-400 font-medium">MC Scenarios (M)</label>
+              <select id="selectScenarios"
+                class="mt-1 w-full px-2 py-1.5 text-xs bg-slate-800 border border-slate-700 rounded-lg text-white font-mono focus:border-emerald-500 focus:outline-none">
+                <option value="5000">5,000 (Fastest)</option>
+                <option value="10000" selected>10,000 (Recommended)</option>
+                <option value="20000">20,000 (High Precision)</option>
+                <option value="50000">50,000 (Exhaustive)</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+      </aside>
+
+      <!-- RIGHT CONTENT AREA: Visualizations & Analysis (8 Cols) -->
+      <section class="lg:col-span-8 space-y-6">
+
+        <!-- Chart 1: Cost Curve vs Base Stock Level S -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="line-chart" class="w-4 h-4 text-emerald-400"></i>
+                Total Expected Cost Curve & Risk Bounds vs. Stock Level (S)
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Trade-off between overstock holding costs and catastrophic
+                stockout penalties</p>
+            </div>
+            <div class="flex items-center gap-3 text-xs shrink-0 whitespace-nowrap">
+              <span class="inline-flex items-center gap-1.5 text-emerald-400 font-medium">
+                <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Optimal S* (<span id="tagOptS">4</span>)
+              </span>
+              <span class="inline-flex items-center gap-1.5 text-amber-400 font-medium">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span> Det. S (<span id="tagDetS">2</span>)
+              </span>
+            </div>
+          </div>
+
+          <div class="h-72 w-full">
+            <canvas id="costCurveChart"></canvas>
+          </div>
+        </div>
+
+        <!-- 2-Column Sub-grid: Demand Distribution & Cost PDF Comparison -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <!-- Chart 2: Cost Probability Density Comparison -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <i data-lucide="bar-chart-2" class="w-3.5 h-3.5 text-indigo-400"></i>
+                  Cost Density: Stochastic vs Deterministic
+                </h4>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-medium">Tail
+                  Risk</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mb-3">Notice the severe tail-risk spikes under deterministic
+                ordering.</p>
+            </div>
+            <div class="h-56 w-full">
+              <canvas id="costDensityChart"></canvas>
+            </div>
+          </div>
+
+          <!-- Chart 3: Simulated Monthly Demand Distribution -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between mb-2">
+                <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                  <i data-lucide="pie-chart" class="w-3.5 h-3.5 text-teal-400"></i>
+                  Fleet Monthly Breakdown Distribution
+                </h4>
+                <span class="text-[10px] px-2 py-0.5 rounded bg-teal-500/10 text-teal-400 font-mono"
+                  id="txtDemandStats">E[D]: 2.15 | P95: 5</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mb-3">Simulated failures across all machines within the monthly
+                window.</p>
+            </div>
+            <div class="h-56 w-full">
+              <canvas id="demandDistChart"></canvas>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Interactive Policy "What-If" Sandbox & Cost Breakdown -->
+        <div
+          class="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-850 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="sparkles" class="w-4 h-4 text-emerald-400"></i>
+                Interactive "What-If" Policy Evaluator
+              </h3>
+              <p class="text-xs text-slate-400">Test any arbitrary inventory order quantity and inspect exact financial
+                exposure</p>
+            </div>
+            <div class="flex items-center space-x-2">
+              <span class="text-xs text-slate-400">Selected Policy S =</span>
+              <span
+                class="text-base font-extrabold text-emerald-400 mono px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30"
+                id="sandboxSDisplay">4</span>
+            </div>
+          </div>
+
+          <!-- Slider -->
+          <div>
+            <input type="range" id="sandboxSlider" min="0" max="25" step="1" value="4"
+              class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+              <span>0 (Pure Stockout Risk)</span>
+              <span class="text-emerald-400">S* Recommended</span>
+              <span id="txtMaxStorageLabel">25 (Overstock Risk)</span>
+            </div>
+          </div>
+
+          <!-- Sandbox Live KPI Tiles -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
+              <div class="text-[11px] text-slate-400 font-medium">Expected Cost</div>
+              <div class="text-lg font-bold text-white mono mt-0.5" id="sbExpectedCost">₹7,105</div>
+              <div class="text-[10px] text-slate-400 mt-1" id="sbCostDelta">Optimal Minimum</div>
+            </div>
+
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
+              <div class="text-[11px] text-slate-400 font-medium">Procurement (₹)</div>
+              <div class="text-lg font-bold text-slate-200 mono mt-0.5" id="sbProcureCost">₹6,000</div>
+              <div class="text-[10px] text-slate-400 mt-1">Upfront planned</div>
+            </div>
+
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
+              <div class="text-[11px] text-slate-400 font-medium">Stockout Penalty</div>
+              <div class="text-lg font-bold text-amber-400 mono mt-0.5" id="sbPenaltyCost">₹816</div>
+              <div class="text-[10px] text-slate-400 mt-1" id="sbStockoutRisk">6.9% incident risk</div>
+            </div>
+
+            <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
+              <div class="text-[11px] text-slate-400 font-medium">Holding Cost</div>
+              <div class="text-lg font-bold text-slate-300 mono mt-0.5" id="sbHoldingCost">₹289</div>
+              <div class="text-[10px] text-slate-400 mt-1" id="sbOverstockUnits">2.41 avg stored</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sensitivity Analysis Table -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="layers" class="w-4 h-4 text-purple-400"></i>
+                Weibull Wear-Rate Sensitivity Analysis (Varying Shape k)
+              </h3>
+              <p class="text-xs text-slate-400">Evaluates how component aging and degradation intensity impact optimal
+                stocking levels</p>
+            </div>
+            <button id="btnRefreshSensitivity"
+              class="text-xs text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Recompute
+            </button>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs text-slate-300">
+              <thead class="bg-slate-800/80 text-slate-400 uppercase text-[10px] font-semibold tracking-wider">
+                <tr>
+                  <th class="py-2.5 px-3 rounded-l-lg">Weibull Shape (k)</th>
+                  <th class="py-2.5 px-3">Degradation Stage</th>
+                  <th class="py-2.5 px-3">MTBF (hrs)</th>
+                  <th class="py-2.5 px-3">Mean Demand</th>
+                  <th class="py-2.5 px-3 text-emerald-400">Optimal S*</th>
+                  <th class="py-2.5 px-3">Stochastic Cost</th>
+                  <th class="py-2.5 px-3 text-amber-400">Det. Cost</th>
+                  <th class="py-2.5 px-3 text-indigo-400 font-bold rounded-r-lg">VSS Savings</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800/60 font-mono" id="sensitivityTableBody">
+                <!-- Dynamically populated rows -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+    </div>
+
+  </main>
+
+
+
+  <!-- Core JavaScript Engine -->
+  <script>
+    // -------------------------------------------------------------------------
+    // 1. MATHEMATICAL UTILITIES & WEIBULL SAMPLER
+    // -------------------------------------------------------------------------
+
+    // Lanczos approximation for Gamma function
+    function gamma(z) {
+      const g = 7;
+      const C = [
+        0.99999999999980993,
+        676.5203681218851,
+        -1259.1392167224028,
+        771.32342877765313,
+        -176.61502916214059,
+        12.507343278686905,
+        -0.13857109583659911,
+        9.9843695780195716e-6,
+        1.5056327351493116e-7
+      ];
+      if (z < 0.5) return Math.PI / (Math.sin(Math.PI * z) * gamma(1 - z));
+      z -= 1;
+      let x = C[0];
+      for (let i = 1; i < g + 2; i++) x += C[i] / (z + i);
+      const t = z + g + 0.5;
+      return Math.sqrt(2 * Math.PI) * Math.pow(t, z + 0.5) * Math.exp(-t) * x;
+    }
+
+    // Sample from Weibull(k, lambda)
+    function sampleWeibull(k, lambda) {
+      // Inversion method: F(t) = 1 - exp(-(t/lambda)^k)
+      // t = lambda * (-ln(1 - U))^(1/k)
+      const u = Math.random();
+      return lambda * Math.pow(-Math.log(1.0 - u + 1e-12), 1.0 / k);
+    }
+
+    // Fast Monte Carlo simulator of monthly component failures across N machines
+    function simulateFailures(numMachines, hours, k, lambda, scenarios) {
+      const demands = new Int32Array(scenarios);
+      for (let s = 0; s < scenarios; s++) {
+        let totalFails = 0;
+        for (let m = 0; m < numMachines; m++) {
+          let currTime = 0.0;
+          while (true) {
+            const ttf = sampleWeibull(k, lambda);
+            currTime += ttf;
+            if (currTime <= hours) {
+              totalFails++;
+            } else {
+              break;
+            }
+          }
+        }
+        demands[s] = totalFails;
+      }
+      return demands;
+    }
+
+    // Cost evaluation for base stock level S
+    function evaluateCost(S, demands, cp, ch, penalty) {
+      const n = demands.length;
+      const costs = new Float64Array(n);
+      const holding = new Float64Array(n);
+      const stockoutPenalty = new Float64Array(n);
+      const procureCost = cp * S;
+
+      let sumCost = 0;
+      let sumHolding = 0;
+      let sumPenalty = 0;
+      let stockoutCount = 0;
+      let unmetDemandSum = 0;
+      let overstockSum = 0;
+
+      for (let i = 0; i < n; i++) {
+        const d = demands[i];
+        let h = 0;
+        let p = 0;
+        if (d > S) {
+          const shortage = d - S;
+          p = penalty * shortage;
+          stockoutCount++;
+          unmetDemandSum += shortage;
+        } else {
+          const surplus = S - d;
+          h = ch * surplus;
+          overstockSum += surplus;
+        }
+        holding[i] = h;
+        stockoutPenalty[i] = p;
+        const total = procureCost + h + p;
+        costs[i] = total;
+        sumCost += total;
+        sumHolding += h;
+        sumPenalty += p;
+      }
+
+      const meanCost = sumCost / n;
+      const meanHolding = sumHolding / n;
+      const meanPenalty = sumPenalty / n;
+
+      // 95% CVaR calculation
+      // For speed, sample or approximate percentile
+      const sortedCosts = Float64Array.from(costs).sort();
+      const p95Idx = Math.floor(n * 0.95);
+      const var95 = sortedCosts[p95Idx];
+      let cvarSum = 0;
+      let cvarCount = 0;
+      for (let i = p95Idx; i < n; i++) {
+        cvarSum += sortedCosts[i];
+        cvarCount++;
+      }
+      const cvar95 = cvarCount > 0 ? (cvarSum / cvarCount) : var95;
+
+      return {
+        costs,
+        meanCost,
+        meanHolding,
+        meanPenalty,
+        procureCost,
+        var95,
+        cvar95,
+        stockoutProb: stockoutCount / n,
+        unmetDemandSum,
+        overstockSum
+      };
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. STATE & CHART INSTANCES
+    // -------------------------------------------------------------------------
+    let currentDemands = null;
+    let currentOptimization = null;
+    let costCurveChart = null;
+    let costDensityChart = null;
+    let demandDistChart = null;
+
+    // Helper: format currency
+    function fmtCur(num) {
+      return '₹' + Math.round(num).toLocaleString('en-IN');
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. MAIN SIMULATION & OPTIMIZATION ORCHESTRATOR
+    // -------------------------------------------------------------------------
+    function runSimulation() {
+      const btn = document.getElementById('btnRunSimulation');
+      btn.classList.add('opacity-75', 'cursor-not-allowed');
+      document.getElementById('engineStatus').textContent = 'Simulating Scenarios...';
+
+      // Read UI parameters
+      const numMachines = parseInt(document.getElementById('inputMachines').value, 10);
+      const hours = parseFloat(document.getElementById('inputHours').value);
+      const k = parseFloat(document.getElementById('inputK').value);
+      const lambda = parseFloat(document.getElementById('inputLambda').value);
+
+      const cp = parseFloat(document.getElementById('inputCp').value);
+      const ch = parseFloat(document.getElementById('inputCh').value);
+      const ce = parseFloat(document.getElementById('inputCe').value);
+      const cd = parseFloat(document.getElementById('inputCd').value);
+      const penalty = ce + cd;
+
+      const maxStorage = parseInt(document.getElementById('inputMaxStorage').value, 10);
+      const scenarios = parseInt(document.getElementById('selectScenarios').value, 10);
+
+      // Update badges & UI parameter labels
+      document.getElementById('valMachines').textContent = numMachines;
+      document.getElementById('valHours').textContent = hours + ' hrs';
+      document.getElementById('valK').textContent = k.toFixed(2);
+      document.getElementById('valLambda').textContent = lambda + ' hrs';
+      document.getElementById('txtStockoutPenalty').textContent = 'Penalty: ' + fmtCur(penalty);
+
+      // Weibull stage tag
+      const stageBadge = document.getElementById('badgeWeibullStage');
+      if (k < 1.0) {
+        stageBadge.textContent = 'Infant Mortality (k < 1)';
+        stageBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20';
+      } else if (Math.abs(k - 1.0) < 0.05) {
+        stageBadge.textContent = 'Random / Constant (k ≈ 1)';
+        stageBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20';
+      } else {
+        stageBadge.textContent = 'Wear-out / Aging (k > 1)';
+        stageBadge.className = 'px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20';
+      }
+
+      // MTBF
+      const mtbf = lambda * gamma(1.0 + 1.0 / k);
+      document.getElementById('txtMTBF').textContent = `MTBF: ${Math.round(mtbf).toLocaleString()} hrs`;
+
+      // Critical Fractile
+      const cu = penalty - cp;
+      const co = ch;
+      const criticalRatio = cu / (cu + co);
+      document.getElementById('valCriticalRatio').textContent = criticalRatio.toFixed(3);
+
+      // Sandbox slider limits
+      document.getElementById('sandboxSlider').max = maxStorage;
+      document.getElementById('txtMaxStorageLabel').textContent = `${maxStorage} (Overstock Risk)`;
+
+      // Run Monte Carlo in setTimeout to allow UI thread to render status
+      setTimeout(() => {
+        const t0 = performance.now();
+        currentDemands = simulateFailures(numMachines, hours, k, lambda, scenarios);
+        const tSim = Math.round(performance.now() - t0);
+
+        // Demand statistics
+        let demandSum = 0;
+        let maxD = 0;
+        const demandCounts = {};
+        for (let i = 0; i < currentDemands.length; i++) {
+          const d = currentDemands[i];
+          demandSum += d;
+          if (d > maxD) maxD = d;
+          demandCounts[d] = (demandCounts[d] || 0) + 1;
+        }
+        const meanDemand = demandSum / scenarios;
+
+        const sortedDemands = Int32Array.from(currentDemands).sort();
+        const p95Demand = sortedDemands[Math.floor(scenarios * 0.95)];
+        document.getElementById('txtDemandStats').textContent = `E[D]: ${meanDemand.toFixed(2)} | P95: ${p95Demand}`;
+
+        // Evaluate candidate base stock policies S in [0, maxStorage]
+        const candidateS = [];
+        const expectedCosts = [];
+        const cvarCosts = [];
+        const holdingCosts = [];
+        const penaltyCosts = [];
+        const procureCosts = [];
+        const policyMetrics = [];
+
+        let minCost = Infinity;
+        let bestS = 0;
+
+        for (let s = 0; s <= maxStorage; s++) {
+          candidateS.push(s);
+          const evalRes = evaluateCost(s, currentDemands, cp, ch, penalty);
+          expectedCosts.push(evalRes.meanCost);
+          cvarCosts.push(evalRes.cvar95);
+          holdingCosts.push(evalRes.meanHolding);
+          penaltyCosts.push(evalRes.meanPenalty);
+          procureCosts.push(evalRes.procureCost);
+
+          const fillRate = 1.0 - (evalRes.unmetDemandSum / (demandSum + 1e-9));
+          const csl = 1.0 - evalRes.stockoutProb;
+
+          policyMetrics.push({
+            s,
+            expectedCost: evalRes.meanCost,
+            cvar95: evalRes.cvar95,
+            meanHolding: evalRes.meanHolding,
+            meanPenalty: evalRes.meanPenalty,
+            procureCost: evalRes.procureCost,
+            fillRate: Math.max(0, Math.min(1, fillRate)),
+            csl: csl,
+            stockoutProb: evalRes.stockoutProb,
+            costs: evalRes.costs
+          });
+
+          if (evalRes.meanCost < minCost) {
+            minCost = evalRes.meanCost;
+            bestS = s;
+          }
+        }
+
+        // Deterministic baseline
+        const sDet = Math.min(maxStorage, Math.max(0, Math.round(meanDemand)));
+        const detMetrics = policyMetrics[sDet];
+        const optMetrics = policyMetrics[bestS];
+
+        const vss = detMetrics.expectedCost - optMetrics.expectedCost;
+        const vssPct = (vss / detMetrics.expectedCost) * 100.0;
+
+        currentOptimization = {
+          bestS,
+          sDet,
+          minCost,
+          optMetrics,
+          detMetrics,
+          vss,
+          vssPct,
+          candidateS,
+          expectedCosts,
+          cvarCosts,
+          holdingCosts,
+          penaltyCosts,
+          procureCosts,
+          policyMetrics,
+          meanDemand,
+          p95Demand,
+          demandCounts,
+          maxD,
+          scenarios
+        };
+
+        // Update KPIs
+        document.getElementById('kpiSStoch').textContent = bestS;
+        document.getElementById('tagOptS').textContent = bestS;
+        document.getElementById('kpiSDet').textContent = sDet;
+        document.getElementById('tagDetS').textContent = sDet;
+
+        const safetyDelta = bestS - sDet;
+        document.getElementById('kpiSafetyStock').textContent = (safetyDelta >= 0 ? `+${safetyDelta}` : `${safetyDelta}`) + ' units';
+        document.getElementById('kpiDetRisk').textContent = `${(detMetrics.stockoutProb * 100).toFixed(1)}% stockout probability`;
+
+        document.getElementById('kpiVSS').textContent = fmtCur(vss);
+        document.getElementById('kpiVSSPct').textContent = `${vssPct.toFixed(1)}% savings`;
+
+        document.getElementById('kpiFillRate').textContent = `${(optMetrics.fillRate * 100).toFixed(1)}%`;
+        document.getElementById('kpiCSL').textContent = `${(optMetrics.csl * 100).toFixed(1)}%`;
+
+        // Update Sandbox Slider to recommended S*
+        document.getElementById('sandboxSlider').value = bestS;
+        updateSandbox(bestS);
+
+        // Update Visualizations
+        renderCostCurveChart(currentOptimization);
+        renderCostDensityChart(currentOptimization);
+        renderDemandDistChart(currentOptimization);
+        renderSensitivityTable(numMachines, hours, lambda, cp, ch, penalty, maxStorage);
+
+        document.getElementById('engineStatus').textContent = `Simulation completed in ${tSim}ms (${scenarios.toLocaleString()} runs)`;
+        btn.classList.remove('opacity-75', 'cursor-not-allowed');
+        lucide.createIcons();
+      }, 30);
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. CHART RENDERING FUNCTIONS (CHART.JS)
+    // -------------------------------------------------------------------------
+    function renderCostCurveChart(opt) {
+      const ctx = document.getElementById('costCurveChart').getContext('2d');
+      if (costCurveChart) costCurveChart.destroy();
+
+      // Point styling for S* and S_det
+      const pointRadii = opt.candidateS.map(s => (s === opt.bestS || s === opt.sDet) ? 7 : 0);
+      const pointColors = opt.candidateS.map(s => {
+        if (s === opt.bestS) return '#22c55e'; // emerald
+        if (s === opt.sDet) return '#f59e0b';  // amber
+        return '#3b82f6';
+      });
+
+      costCurveChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: opt.candidateS,
+          datasets: [
+            {
+              label: 'Expected Total Cost (₹)',
+              data: opt.expectedCosts,
+              borderColor: '#22c55e',
+              backgroundColor: 'rgba(34, 197, 94, 0.08)',
+              borderWidth: 2.5,
+              tension: 0.25,
+              fill: true,
+              pointRadius: pointRadii,
+              pointBackgroundColor: pointColors,
+              pointBorderColor: '#ffffff',
+              pointBorderWidth: 2
+            },
+            {
+              label: '95% CVaR Risk (₹)',
+              data: opt.cvarCosts,
+              borderColor: '#ef4444',
+              borderWidth: 1.8,
+              borderDash: [5, 4],
+              tension: 0.25,
+              fill: false,
+              pointRadius: 0
+            },
+            {
+              label: 'Stockout Penalty (₹)',
+              data: opt.penaltyCosts,
+              borderColor: '#f97316',
+              borderWidth: 1.5,
+              borderDash: [3, 3],
+              tension: 0.2,
+              fill: false,
+              pointRadius: 0
+            },
+            {
+              label: 'Holding Cost (₹)',
+              data: opt.holdingCosts,
+              borderColor: '#06b6d4',
+              borderWidth: 1.5,
+              tension: 0.2,
+              fill: false,
+              pointRadius: 0
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false,
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: {
+                color: '#94a3b8',
+                font: { size: 11, family: 'Inter' },
+                boxWidth: 12,
+                boxHeight: 12,
+                usePointStyle: true
+              }
+            },
+            tooltip: {
+              backgroundColor: '#0f172a',
+              titleColor: '#f8fafc',
+              bodyColor: '#cbd5e1',
+              borderColor: '#334155',
+              borderWidth: 1,
+              padding: 10,
+              callbacks: {
+                title: function (items) {
+                  return `Base Stock S = ${items[0].label} units`;
+                },
+                label: function (ctx) {
+                  return `${ctx.dataset.label}: ${fmtCur(ctx.parsed.y)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              title: {
+                display: true,
+                text: 'Base Stock Order Level (S)',
+                color: '#64748b',
+                font: { size: 11, weight: 600 }
+              },
+              grid: { color: 'rgba(51, 65, 85, 0.4)' },
+              ticks: { color: '#94a3b8', font: { size: 10, family: 'JetBrains Mono' } }
+            },
+            y: {
+              title: {
+                display: true,
+                text: 'Monthly Cost (₹)',
+                color: '#64748b',
+                font: { size: 11, weight: 600 }
+              },
+              grid: { color: 'rgba(51, 65, 85, 0.4)' },
+              ticks: {
+                color: '#94a3b8',
+                font: { size: 10, family: 'JetBrains Mono' },
+                callback: v => '₹' + (v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v)
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function renderCostDensityChart(opt) {
+      const ctx = document.getElementById('costDensityChart').getContext('2d');
+      if (costDensityChart) costDensityChart.destroy();
+
+      // Create bins across costs for Stochastic vs Deterministic
+      const detCosts = opt.detMetrics.costs;
+      const optCosts = opt.optMetrics.costs;
+
+      let minC = Infinity;
+      let maxC = 0;
+      for (let i = 0; i < Math.min(detCosts.length, 5000); i++) {
+        if (detCosts[i] < minC) minC = detCosts[i];
+        if (detCosts[i] > maxC) maxC = detCosts[i];
+        if (optCosts[i] < minC) minC = optCosts[i];
+        if (optCosts[i] > maxC) maxC = optCosts[i];
+      }
+
+      const numBins = 25;
+      const binWidth = (maxC - minC) / numBins;
+      const binLabels = [];
+      const detBins = new Array(numBins).fill(0);
+      const optBins = new Array(numBins).fill(0);
+
+      for (let b = 0; b < numBins; b++) {
+        const binStart = minC + b * binWidth;
+        binLabels.push('₹' + Math.round(binStart / 1000) + 'k');
+      }
+
+      const sampleSize = Math.min(detCosts.length, 10000);
+      for (let i = 0; i < sampleSize; i++) {
+        let bDet = Math.floor((detCosts[i] - minC) / binWidth);
+        if (bDet >= numBins) bDet = numBins - 1;
+        detBins[bDet]++;
+
+        let bOpt = Math.floor((optCosts[i] - minC) / binWidth);
+        if (bOpt >= numBins) bOpt = numBins - 1;
+        optBins[bOpt]++;
+      }
+
+      // Convert to density percentage
+      const detPct = detBins.map(c => ((c / sampleSize) * 100).toFixed(1));
+      const optPct = optBins.map(c => ((c / sampleSize) * 100).toFixed(1));
+
+      costDensityChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: binLabels,
+          datasets: [
+            {
+              label: `Stochastic S*=${opt.bestS}`,
+              data: optPct,
+              backgroundColor: 'rgba(34, 197, 94, 0.65)',
+              borderColor: '#22c55e',
+              borderWidth: 1,
+              borderRadius: 3
+            },
+            {
+              label: `Deterministic S=${opt.sDet}`,
+              data: detPct,
+              backgroundColor: 'rgba(245, 158, 11, 0.55)',
+              borderColor: '#f59e0b',
+              borderWidth: 1,
+              borderRadius: 3
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 10 }
+            },
+            tooltip: {
+              callbacks: {
+                label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}% of scenarios`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { color: '#94a3b8', font: { size: 9 } }
+            },
+            y: {
+              title: { display: true, text: 'Frequency (%)', color: '#64748b', font: { size: 10 } },
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', font: { size: 9 } }
+            }
+          }
+        }
+      });
+    }
+
+    function renderDemandDistChart(opt) {
+      const ctx = document.getElementById('demandDistChart').getContext('2d');
+      if (demandDistChart) demandDistChart.destroy();
+
+      const labels = [];
+      const probs = [];
+      const cdfs = [];
+      let cumSum = 0;
+
+      for (let d = 0; d <= Math.min(opt.maxD + 1, 20); d++) {
+        labels.push(d);
+        const cnt = opt.demandCounts[d] || 0;
+        const p = cnt / opt.scenarios;
+        probs.push((p * 100).toFixed(1));
+        cumSum += p;
+        cdfs.push((Math.min(1.0, cumSum) * 100).toFixed(1));
+      }
+
+      demandDistChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              type: 'line',
+              label: 'Cumulative Prob (CDF %)',
+              data: cdfs,
+              borderColor: '#06b6d4',
+              borderWidth: 2,
+              yAxisID: 'y1',
+              pointRadius: 2,
+              tension: 0.2
+            },
+            {
+              type: 'bar',
+              label: 'Probability (%)',
+              data: probs,
+              backgroundColor: 'rgba(20, 184, 166, 0.6)',
+              borderColor: '#14b8a6',
+              borderWidth: 1,
+              borderRadius: 3,
+              yAxisID: 'y'
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'top',
+              labels: { color: '#94a3b8', font: { size: 10 }, boxWidth: 10 }
+            }
+          },
+          scales: {
+            x: {
+              title: { display: true, text: 'Monthly Failures (Breakdown Units)', color: '#64748b', font: { size: 10 } },
+              grid: { display: false },
+              ticks: { color: '#94a3b8', font: { size: 10, family: 'JetBrains Mono' } }
+            },
+            y: {
+              title: { display: true, text: 'Prob (%)', color: '#64748b', font: { size: 10 } },
+              grid: { color: 'rgba(51, 65, 85, 0.3)' },
+              ticks: { color: '#94a3b8', font: { size: 9 } }
+            },
+            y1: {
+              position: 'right',
+              title: { display: true, text: 'CDF (%)', color: '#06b6d4', font: { size: 10 } },
+              grid: { display: false },
+              min: 0,
+              max: 100,
+              ticks: { color: '#06b6d4', font: { size: 9 } }
+            }
+          }
+        }
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. INTERACTIVE SANDBOX "WHAT-IF" CONTROLLER
+    // -------------------------------------------------------------------------
+    function updateSandbox(selectedS) {
+      if (!currentOptimization) return;
+
+      const s = parseInt(selectedS, 10);
+      const metrics = currentOptimization.policyMetrics[s];
+      if (!metrics) return;
+
+      document.getElementById('sandboxSDisplay').textContent = s;
+      document.getElementById('sbExpectedCost').textContent = fmtCur(metrics.expectedCost);
+
+      const delta = metrics.expectedCost - currentOptimization.minCost;
+      const deltaEl = document.getElementById('sbCostDelta');
+      if (s === currentOptimization.bestS) {
+        deltaEl.textContent = 'Optimal Lowest Cost';
+        deltaEl.className = 'text-[10px] text-emerald-400 font-semibold mt-1';
+      } else {
+        deltaEl.textContent = `+${fmtCur(delta)} above optimal`;
+        deltaEl.className = 'text-[10px] text-rose-400 font-semibold mt-1';
+      }
+
+      document.getElementById('sbProcureCost').textContent = fmtCur(metrics.procureCost);
+      document.getElementById('sbPenaltyCost').textContent = fmtCur(metrics.meanPenalty);
+      document.getElementById('sbStockoutRisk').textContent = `${(metrics.stockoutProb * 100).toFixed(1)}% stockout risk`;
+
+      document.getElementById('sbHoldingCost').textContent = fmtCur(metrics.meanHolding);
+      const avgOverstock = metrics.meanHolding / parseFloat(document.getElementById('inputCh').value);
+      document.getElementById('sbOverstockUnits').textContent = `${avgOverstock.toFixed(2)} avg stored units`;
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. WEIBULL SENSITIVITY TABLE GENERATOR
+    // -------------------------------------------------------------------------
+    function renderSensitivityTable(numMachines, hours, lambda, cp, ch, penalty, maxStorage) {
+      const kList = [1.2, 1.6, 2.0, 2.2, 2.5, 3.0];
+      const tbody = document.getElementById('sensitivityTableBody');
+      tbody.innerHTML = '';
+
+      const testScenarios = 4000;
+
+      kList.forEach(kVal => {
+        const dSamples = simulateFailures(numMachines, hours, kVal, lambda, testScenarios);
+        let sumD = 0;
+        for (let i = 0; i < testScenarios; i++) sumD += dSamples[i];
+        const meanD = sumD / testScenarios;
+
+        let bestCost = Infinity;
+        let bestS = 0;
+        for (let s = 0; s <= maxStorage; s++) {
+          const res = evaluateCost(s, dSamples, cp, ch, penalty);
+          if (res.meanCost < bestCost) {
+            bestCost = res.meanCost;
+            bestS = s;
+          }
+        }
+
+        const detS = Math.min(maxStorage, Math.max(0, Math.round(meanD)));
+        const detCost = evaluateCost(detS, dSamples, cp, ch, penalty).meanCost;
+        const vss = detCost - bestCost;
+
+        const mtbf = Math.round(lambda * gamma(1.0 + 1.0 / kVal));
+
+        let stageText = 'Moderate Wear';
+        let stageClass = 'text-slate-300';
+        if (kVal <= 1.2) {
+          stageText = 'Near-Random Failures';
+          stageClass = 'text-blue-400';
+        } else if (kVal >= 2.5) {
+          stageText = 'Severe Wear-out';
+          stageClass = 'text-amber-400';
+        }
+
+        const isCurrent = Math.abs(kVal - parseFloat(document.getElementById('inputK').value)) < 0.15;
+        const rowBg = isCurrent ? 'bg-emerald-950/30 border-l-2 border-emerald-500' : 'hover:bg-slate-800/40';
+
+        const tr = document.createElement('tr');
+        tr.className = `${rowBg} transition`;
+        tr.innerHTML = `
+          <td class="py-2.5 px-3 font-bold ${isCurrent ? 'text-emerald-400' : 'text-slate-200'}">${kVal.toFixed(1)} ${isCurrent ? '★' : ''}</td>
+          <td class="py-2.5 px-3 ${stageClass}">${stageText}</td>
+          <td class="py-2.5 px-3 text-slate-400">${mtbf.toLocaleString()}</td>
+          <td class="py-2.5 px-3 text-slate-300">${meanD.toFixed(2)}</td>
+          <td class="py-2.5 px-3 text-emerald-400 font-extrabold">${bestS}</td>
+          <td class="py-2.5 px-3 text-slate-200">${fmtCur(bestCost)}</td>
+          <td class="py-2.5 px-3 text-amber-300">${fmtCur(detCost)}</td>
+          <td class="py-2.5 px-3 text-indigo-400 font-bold">+${fmtCur(vss)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. CSV EXPORTER
+    // -------------------------------------------------------------------------
+    function exportCSV() {
+      if (!currentOptimization) return;
+      const opt = currentOptimization;
+      let csv = 'BaseStock_S,ExpectedCost,ProcureCost,HoldingCost,PenaltyCost,CVaR95,FillRate,CycleServiceLevel\n';
+      opt.policyMetrics.forEach(m => {
+        csv += `${m.s},${m.expectedCost.toFixed(2)},${m.procureCost.toFixed(2)},${m.meanHolding.toFixed(2)},${m.meanPenalty.toFixed(2)},${m.cvar95.toFixed(2)},${(m.fillRate * 100).toFixed(2)}%,${(m.csl * 100).toFixed(2)}%\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `stochastic_inventory_optimization_${Date.now()}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. EVENT LISTENERS
+    // -------------------------------------------------------------------------
+    document.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+
+      // Run simulation on launch
+      runSimulation();
+
+      // Button listeners
+      document.getElementById('btnRunSimulation').addEventListener('click', runSimulation);
+      document.getElementById('btnExportCSV').addEventListener('click', exportCSV);
+      document.getElementById('btnRefreshSensitivity').addEventListener('click', () => {
+        const numMachines = parseInt(document.getElementById('inputMachines').value, 10);
+        const hours = parseFloat(document.getElementById('inputHours').value);
+        const lambda = parseFloat(document.getElementById('inputLambda').value);
+        const cp = parseFloat(document.getElementById('inputCp').value);
+        const ch = parseFloat(document.getElementById('inputCh').value);
+        const ce = parseFloat(document.getElementById('inputCe').value);
+        const cd = parseFloat(document.getElementById('inputCd').value);
+        const penalty = ce + cd;
+        const maxStorage = parseInt(document.getElementById('inputMaxStorage').value, 10);
+        renderSensitivityTable(numMachines, hours, lambda, cp, ch, penalty, maxStorage);
+      });
+
+      // Sandbox slider
+      document.getElementById('sandboxSlider').addEventListener('input', (e) => {
+        updateSandbox(e.target.value);
+      });
+
+      // Auto-update slider visual values
+      document.getElementById('inputMachines').addEventListener('input', (e) => {
+        document.getElementById('valMachines').textContent = e.target.value;
+      });
+      document.getElementById('inputHours').addEventListener('input', (e) => {
+        document.getElementById('valHours').textContent = e.target.value + ' hrs';
+      });
+      document.getElementById('inputK').addEventListener('input', (e) => {
+        document.getElementById('valK').textContent = parseFloat(e.target.value).toFixed(2);
+      });
+      document.getElementById('inputLambda').addEventListener('input', (e) => {
+        document.getElementById('valLambda').textContent = e.target.value + ' hrs';
+      });
+    });
+  </script>
+</body>
+
+</html>
